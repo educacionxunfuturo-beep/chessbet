@@ -108,13 +108,13 @@ const ConnectModal = ({ isOpen, onClose }: ConnectModalProps) => {
     if (success) {
       // Auto-switch to BSC for low fees
       try {
-        await switchToBSC(true); // Use testnet for development
-        toast.success('MetaMask conectada a BSC', {
+        await switchToBSC(false);
+        toast.success('MetaMask conectada a BNB Smart Chain', {
           description: 'Red configurada para comisiones bajas',
         });
       } catch {
         toast.success('MetaMask conectada', {
-          description: 'Recuerda cambiar a BSC para jugar',
+          description: 'Recuerda cambiar a BNB Smart Chain para jugar',
         });
       }
       onClose();
