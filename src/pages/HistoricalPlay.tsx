@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/hooks/useWallet';
-import { coachApiUrl } from '@/lib/coachApi';
+import { ensureCoachApiAwake, fetchCoachApi } from '@/lib/coachApi';
 import ConnectModal from '@/components/ConnectModal';
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter 
@@ -128,8 +128,6 @@ const LoginGate = ({
   </div>
 );
 
-const API_URL = coachApiUrl('/api');
-
 const generateSessionToken = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
 export default function HistoricalPlay() {
@@ -144,6 +142,7 @@ export default function HistoricalPlay() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [lastCoachMoveCount, setLastCoachMoveCount] = useState(0);
   const [isEngineThinking, setIsEngineThinking] = useState(false);
+  const [isWarmingEngine, setIsWarmingEngine] = useState(false);
   
   // Auth Modal State
   const [showConnectModal, setShowConnectModal] = useState(false);
@@ -183,11 +182,11 @@ export default function HistoricalPlay() {
         session_token: sessionToken,
         interaction_mode: interactionMode
       });
-      const res = await fetch(`${API_URL}/chat/history/${selectedCoachId}?${params.toString()}`, {
+      const res = await fetchCoachApi(`/api/chat/history/${selectedCoachId}?${params.toString()}`, {
         headers: { 
           'Authorization': `Bearer ${session.access_token}`
         }
-      });
+      }, { retries: 2 });
       if (res.ok) {
         const data = await res.json();
         const history = data.map((m: any) => ({
@@ -309,9 +308,9 @@ export default function HistoricalPlay() {
     if (!profile || !session) return;
     setIsLoadingHistory(true);
     try {
-      const res = await fetch(`${API_URL}/history`, {
+      const res = await fetchCoachApi('/api/history', {
         headers: { 'Authorization': `Bearer ${session.access_token}` }
-      });
+      }, { retries: 2 });
       if (res.ok) {
         const data = await res.json();
         setGameHistory(data.games || []);
@@ -333,7 +332,7 @@ export default function HistoricalPlay() {
     setShowEvalModal(true);
     
     try {
-      const res = await fetch(`${API_URL}/game/evaluate`, {
+      const res = await fetchCoachApi('/api/game/evaluate', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -347,7 +346,7 @@ export default function HistoricalPlay() {
           time_control: selectedTime,
           session_token: completedSessionToken
         })
-      });
+      }, { retries: 2 });
       if (res.ok) {
         const data = await res.json();
         setEvaluation(data);
@@ -394,7 +393,7 @@ export default function HistoricalPlay() {
     setShowEmojiPicker(false);
 
     try {
-      const response = await fetch(`${API_URL}/chat`, {
+      const response = await fetchCoachApi('/api/chat', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -413,7 +412,7 @@ export default function HistoricalPlay() {
           game_id: null,
           session_token: sessionToken
         }),
-      });
+      }, { retries: 2 });
       if (!response.ok) throw new Error("Chat failed");
       const data = await response.json();
       
@@ -475,7 +474,7 @@ export default function HistoricalPlay() {
     
     setTimeout(async () => {
       try {
-        const response = await fetch(`${API_URL}/play/move`, {
+        const response = await fetchCoachApi('/api/play/move', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
@@ -486,7 +485,7 @@ export default function HistoricalPlay() {
             persona: activeCoach.id,
             time_control: selectedTime
           })
-        });
+        }, { retries: 2, retryDelayMs: 5000 });
         const data = await response.json();
         if (data.move) {
           const newGame = new Chess();
@@ -516,7 +515,7 @@ export default function HistoricalPlay() {
 
           if (movesSinceLast >= 10 && !isFetchingCommentaryRef.current) {
             isFetchingCommentaryRef.current = true;
-            fetch(`${API_URL}/chat`, {
+            fetchCoachApi('/api/chat', {
               method: "POST",
               headers: { 
                 "Content-Type": "application/json",
@@ -536,7 +535,7 @@ export default function HistoricalPlay() {
                 game_id: null,
                 session_token: currentSessionToken
               })
-            }).then(r => r.json()).then(chatData => {
+            }, { retries: 2 }).then(r => r.json()).then(chatData => {
               isFetchingCommentaryRef.current = false;
               if (chatData.reply) {
                 setChatHistories(prev => {
@@ -572,17 +571,17 @@ export default function HistoricalPlay() {
 
   // AUTO-TRIGGER ENGINE MOVE
   useEffect(() => {
-    if (isPlaying && !isEngineThinking && !game.isGameOver()) {
+    if (isPlaying && !isEngineThinking && !isWarmingEngine && !game.isGameOver()) {
       const isUserTurn = game.turn() === userColor.charAt(0);
       if (!isUserTurn) {
         console.log("DEBUG: Auto-triggering AI move for turn:", game.turn());
         makeEngineMove();
       }
     }
-  }, [isPlaying, isEngineThinking, game, userColor, makeEngineMove, session]);
+  }, [isPlaying, isEngineThinking, isWarmingEngine, game, userColor, makeEngineMove, session]);
 
   const onDrop = (sourceSquare: string, targetSquare: string, piece: string) => {
-    if (!isPlaying || isEngineThinking || game.turn() !== userColor.charAt(0)) return false;
+    if (!isPlaying || isEngineThinking || isWarmingEngine || game.turn() !== userColor.charAt(0)) return false;
     
     const gameCopy = new Chess();
     gameCopy.loadPgn(game.pgn());
@@ -600,7 +599,7 @@ export default function HistoricalPlay() {
     return true;
   };
 
-  const startGame = () => {
+  const startGame = async () => {
     if (!selectedCoachId) return toast.error('Elige un oponente histórico primero');
     if (!isAuthenticated && !address) return toast.error('Inicia sesión para jugar.');
     
@@ -613,6 +612,20 @@ export default function HistoricalPlay() {
         return;
       }
       return toast.error('Vinculando tu wallet con el servidor... espera un momento.');
+    }
+
+    const wakeToast = toast.loading('Despertando motor del maestro...');
+    setIsWarmingEngine(true);
+
+    try {
+      await ensureCoachApiAwake({ attempts: 8, delayMs: 5000 });
+      toast.success('Motor listo.', { id: wakeToast });
+    } catch (error) {
+      console.error(error);
+      toast.error('El motor tardó demasiado en responder. Intenta de nuevo en unos segundos.', { id: wakeToast });
+      return;
+    } finally {
+      setIsWarmingEngine(false);
     }
     
     const newGame = new Chess();
@@ -783,9 +796,10 @@ export default function HistoricalPlay() {
                 {selectedCoachId && (
                   <Button 
                     onClick={startGame} 
-                    className="w-full bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-black font-black h-14 rounded-2xl shadow-[0_10px_30px_rgba(234,179,8,0.2)] transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    disabled={isWarmingEngine}
+                    className="w-full bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-black font-black h-14 rounded-2xl shadow-[0_10px_30px_rgba(234,179,8,0.2)] transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100"
                   >
-                    INICIAR DESAFÍO ({selectedTime} min)
+                    {isWarmingEngine ? 'DESPERTANDO MOTOR...' : `INICIAR DESAFÍO (${selectedTime} min)`}
                   </Button>
                 )}
               </div>
