@@ -9,13 +9,9 @@ import chess.pgn
 import chess.engine
 import io
 from typing import List, Dict, Any, Optional
+from deploy_config import resolve_stockfish_path
 
-# Resolve Stockfish path relative to this file
-STOCKFISH_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "engine",
-    "stockfish-windows-x86-64-avx2.exe"
-)
+STOCKFISH_PATH = resolve_stockfish_path()
 
 ANALYSIS_DEPTH = 18  # Good balance between speed and accuracy
 QUICK_DEPTH = 12     # For bulk analysis

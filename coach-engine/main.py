@@ -24,6 +24,7 @@ import httpx
 import chess
 import difflib
 from dotenv import load_dotenv
+from deploy_config import get_cors_allowed_origins, resolve_stockfish_path
 
 # Load .env from parent directory
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
@@ -54,7 +55,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Verify Stockfish Path
-STOCKFISH_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "engine", "stockfish-windows-x86-64-avx2.exe")
+STOCKFISH_PATH = resolve_stockfish_path()
 
 # Supabase Configuration
 SUPABASE_URL = os.getenv("VITE_SUPABASE_URL", "https://arkckzzogbzvtflwdjoy.supabase.co")
@@ -263,7 +264,7 @@ app = FastAPI(title="IA Coach Pro Engine", version="2.6.5")
 # Improved CORS for development - required for Authorization headers
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:10000", "http://127.0.0.1:10000", "http://localhost:5173"],
+    allow_origins=get_cors_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1961,4 +1962,4 @@ async def chat_with_coach(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "8000")))

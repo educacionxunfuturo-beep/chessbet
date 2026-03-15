@@ -1,35 +1,73 @@
 # GameBet - Ajedrez con Apuestas Crypto
 
-App de ajedrez descentralizada que permite a los usuarios competir y ganar recompensas en criptomonedas (BNB, USDT) a través de contratos inteligentes en BNB Smart Chain.
+App de ajedrez con frontend React/Vite y un backend FastAPI para el coach historico, el motor y el analisis post-partida.
 
-## Tecnologías
+## Tecnologias
 
-- **Frontend**: Vite, React, TypeScript
-- **Estilos**: Tailwind CSS, shadcn/ui, Framer Motion
-- **Blockchain**: Ethers.js
-- **Backend/Base de Datos**: Supabase
+- Frontend: Vite, React, TypeScript
+- Estilos: Tailwind CSS, shadcn/ui, Framer Motion
+- Blockchain: Ethers.js
+- Backend/Base de datos: FastAPI, SQLAlchemy, Supabase
+- Motor: Stockfish
 
-## Configuración Local
+## Configuracion local
 
-1. **Clona el repositorio**:
+1. Clona el repositorio:
    ```bash
    git clone <URL_DEL_REPOSITORIO>
-   cd crypto-chess-bets
+   cd exo-stellar
    ```
-
-2. **Instala las dependencias**:
+2. Instala dependencias del frontend:
    ```bash
    npm install
    ```
-
-3. **Configura las variables de entorno**:
-   Crea un archivo `.env` basado en `.env.example` y añade tus credenciales de Supabase.
-
-4. **Inicia el servidor de desarrollo**:
+3. Crea `.env` con tus credenciales:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY`
+   - `GEMINI_API_KEY`
+4. Levanta frontend y backend:
    ```bash
-   npm run dev
+   npm run dev:web
+   cd coach-engine
+   python run_server.py
    ```
 
-## Despliegue
+## Despliegue recomendado
 
-El proyecto está configurado para ser desplegado en plataformas como Vercel o Netlify. Asegúrate de configurar las variables de entorno en el panel de control de tu proveedor de hosting.
+### Frontend en Cloudflare Pages
+
+- Framework preset: `React (Vite)`
+- Build command: `npm install && npm run build`
+- Build output directory: `dist`
+- Variables:
+  - `VITE_SUPABASE_URL`
+  - `VITE_SUPABASE_PUBLISHABLE_KEY`
+  - `VITE_COACH_API_URL`
+
+`VITE_COACH_API_URL` debe apuntar a la URL base publica del backend, por ejemplo `https://gamechess-coach-engine.onrender.com`.
+
+### Backend en Render
+
+El repositorio ya incluye:
+
+- [render.yaml](C:/Users/patri/.gemini/antigravity/playground/exo-stellar/render.yaml)
+- [Dockerfile](C:/Users/patri/.gemini/antigravity/playground/exo-stellar/coach-engine/Dockerfile)
+
+Variables necesarias en Render:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `GEMINI_API_KEY`
+- `CORS_ALLOWED_ORIGINS`
+
+Ejemplo de `CORS_ALLOWED_ORIGINS`:
+
+```text
+https://chessbet.pages.dev
+```
+
+## Notas
+
+- En local, Vite hace proxy de `/api` hacia `127.0.0.1:8000`.
+- En produccion, Cloudflare Pages solo publica el frontend. El coach-engine debe vivir en un servicio aparte.
+- El backend ahora detecta Stockfish por variable `STOCKFISH_PATH` o por rutas comunes de Linux, asi que puede desplegarse en Render sin depender del `.exe` de Windows.

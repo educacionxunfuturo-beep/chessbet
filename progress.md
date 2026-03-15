@@ -38,5 +38,6 @@ Original prompt: cuando intento jugar con el maestro dice motor no conectado, ar
 - 2026-03-15: Se reforzo `HistoricalPlay.tsx` con un disparo directo y deduplicado del motor por FEN (`pendingEngineFenRef`) para evitar que el maestro se quede congelado si el `useEffect` de turno no se dispara en algun render concreto.
 - 2026-03-15: Verificacion posterior al refuerzo: `main.play_move(...)` sobre la misma posicion tras `1.e4` devolvio `e7e5` con los servicios recien levantados.
 - 2026-03-15: `coach-engine/main.py` ahora convierte recuerdos de memoria a referencias temporales humanas (`hoy a las HH:MM`, `ayer`, `hace N dias`) en lugar de repetir fechas frias del calendario dentro del chat del maestro.
+- 2026-03-15: Se dejo `coach-engine` listo para hosting Linux externo: deteccion de Stockfish via entorno/sistema, CORS configurable por `CORS_ALLOWED_ORIGINS`, `PORT` dinamico y plantilla `render.yaml` + `coach-engine/Dockerfile` para desplegar el backend en Render.
 - TODO: Si el usuario quiere post-partida conversacional en la misma vista, conectar explicitamente `interaction_mode='post_game'` en un flujo de chat posterior al modal de evaluacion.
 - TODO: Limpiar el bloque legado muerto que queda al final de `chat_with_coach` en `main.py` ahora que la ruta nueva ya retorna antes y esta funcionando.
