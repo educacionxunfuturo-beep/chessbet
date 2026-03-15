@@ -163,6 +163,49 @@ class CoachReferenceLog(Base):
     game_id = Column(Integer, ForeignKey("games.id", ondelete="SET NULL"), nullable=True)
     cited_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
 
+class WikiEntityCache(Base):
+    __tablename__ = "wiki_entity_cache"
+    __table_args__ = (UniqueConstraint("coach_id", "lang", name="uq_wiki_entity_cache"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    coach_id = Column(String, index=True)
+    lang = Column(String, index=True, default="es")
+    qid = Column(String, index=True, nullable=True)
+    label = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    wikipedia_title = Column(String, nullable=True)
+    wikipedia_summary = Column(Text, nullable=True)
+    birth_date = Column(String, nullable=True)
+    death_date = Column(String, nullable=True)
+    image = Column(String, nullable=True)
+    wikidata_json = Column(Text, nullable=True)
+    extra_json = Column(Text, nullable=True)
+    fetched_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+
+    def as_dict(self):
+        import json
+        def safe_load(value, default):
+            if not value:
+                return default
+            try:
+                return json.loads(value)
+            except Exception:
+                return default
+        return {
+            "coach_id": self.coach_id,
+            "lang": self.lang,
+            "qid": self.qid,
+            "label": self.label,
+            "description": self.description,
+            "wikipedia_title": self.wikipedia_title,
+            "wikipedia_summary": self.wikipedia_summary,
+            "birth_date": self.birth_date,
+            "death_date": self.death_date,
+            "image": self.image,
+            "extra_json": safe_load(self.extra_json, {}),
+            "fetched_at": self.fetched_at.isoformat() if self.fetched_at else None,
+        }
+
 def ensure_sqlite_columns():
     if not SQLALCHEMY_DATABASE_URL.startswith("sqlite:///"):
         return

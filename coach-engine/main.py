@@ -46,9 +46,11 @@ from database import (
     CoachRelationship,
     CoachMemoryProfile,
     CoachReferenceLog,
+    WikiEntityCache,
     KnowledgeSource,
     KnowledgeUnit,
 )
+from wikimedia import get_or_fetch_wiki_profile
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -303,7 +305,13 @@ async def get_master_profile(coach_id: str, user_id: str = Depends(get_current_u
             (MasterGame.white.contains(search_name)) | (MasterGame.black.contains(search_name))
         ).count()
 
-    bio_info = MASTER_BIO_DATA.get(coach_id, {})
+    # Enrichment with Wikidata/Wikipedia (no API key required).
+    wiki_profile = await get_or_fetch_wiki_profile(db, coach_id, lang="es")
+    bio_info = MASTER_BIO_DATA.get(coach_id, {}).copy()
+    if wiki_profile and wiki_profile.get("wikipedia_summary"):
+        bio_info["biography"] = wiki_profile["wikipedia_summary"]
+    if wiki_profile:
+        bio_info["wikimedia"] = wiki_profile
     return {
         "id": coach_id, 
         "name": names.get(coach_id, "GM"), 
@@ -1320,7 +1328,7 @@ def assemble_prompt(
 ) -> str:
     master_info = MASTER_BIO_DATA.get(ctx["persona"], {})
     books = ", ".join(master_info.get("books", []))
-    biography = master_info.get("biography", "")
+    biography = ctx.get("wikimedia_biography") or master_info.get("biography", "")
     criteria = MASTER_CRITERIA.get(ctx["persona"], "Juega con criterio sano y precision.")
     scope_instructions = (
         "Tienes acceso al historial completo del usuario y puedes sintetizarlo globalmente."
@@ -1621,6 +1629,10 @@ async def chat_with_coach(
 ):
     user_id = authenticated_user_id
     ctx = build_request_context(request)
+    if ctx["persona"] != "general":
+        wiki_profile = await get_or_fetch_wiki_profile(db, ctx["persona"], lang="es")
+        if wiki_profile and wiki_profile.get("wikipedia_summary"):
+            ctx["wikimedia_biography"] = wiki_profile["wikipedia_summary"]
     _, profile_data = get_or_create_memory_profile(db, user_id, ctx["persona"])
     session_context = load_session_context(db, user_id, ctx)
     relevant_memories = retrieve_relevant_memories(db, user_id, ctx)
