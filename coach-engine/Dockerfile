@@ -7,7 +7,7 @@ ENV UVICORN_RELOAD=false
 ENV STOCKFISH_PATH=/usr/games/stockfish
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends stockfish build-essential \
+    && apt-get install -y --no-install-recommends stockfish \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app/coach-engine
